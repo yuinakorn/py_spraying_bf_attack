@@ -46,12 +46,19 @@ print("-" * 50)
 attempt_count = 0
 success_count = 0
 
-for fname in fnames:
-    for lname in lnames:
-        for password in passwords:
+# เริ่มที่ password ก่อน (outer loop)
+for password in passwords:
+    print(f"\n🔐 ทดสอบรหัสผ่าน: {password}")
+    print("=" * 40)
+    
+    # fname และ lname ต้องสัมพันธ์กัน (แถวที่ 1 คู่กับแถวที่ 1)
+    for i in range(len(fnames)):
+        if i < len(lnames):  # ตรวจสอบว่ามี lname ครบหรือไม่
+            fname = fnames[i]
+            lname = lnames[i]
             attempt_count += 1
             
-            print(f"\n🔍 ทดสอบครั้งที่ {attempt_count}: {fname} {lname} / {password}")
+            print(f"🔍 ทดสอบครั้งที่ {attempt_count}: {fname} {lname} / {password}")
             
             # เตรียมข้อมูลสำหรับ POST
             login_data = {
