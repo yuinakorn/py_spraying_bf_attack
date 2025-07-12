@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 
 # 1. กำหนด URL
-base_url = "https://smartoffice.chiangmaihealth.go.th"
+base_url = ""
 login_url = f"{base_url}/login"
 
 # 2. เริ่ม session เพื่อเก็บ cookies
@@ -19,9 +19,9 @@ print(f"CSRF Token ที่ได้: {csrf_token}")
 # 5. เตรียมข้อมูลสำหรับ POST
 login_data = {
     '__RequestVerificationToken': csrf_token,
-    'fname': 'นคร',     # เปลี่ยนเป็นค่าที่คุณต้องการ
-    'lname': 'มงคลโชติญาดา',      # เปลี่ยนเป็นค่าที่คุณต้องการ
-    'password': 'Yuijbii' # เปลี่ยนเป็นค่าที่คุณต้องการ
+    'fname': '',     # เปลี่ยนเป็นค่าที่คุณต้องการ
+    'lname': '',      # เปลี่ยนเป็นค่าที่คุณต้องการ
+    'password': '' # เปลี่ยนเป็นค่าที่คุณต้องการ
 }
 
 # 6. ส่ง POST ไปยังฟอร์ม login
