@@ -52,7 +52,6 @@ py_brute_force/
 ├── password.txt               # ไฟล์รายรหัสผ่าน
 ├── requirements.txt           # Dependencies
 ├── brute_force_results.txt    # ผลลัพธ์การทดสอบ (สร้างอัตโนมัติ)
-├── successful_logins.txt      # ข้อมูลที่ login สำเร็จ (สร้างอัตโนมัติ)
 └── README.md                 # คู่มือการใช้งาน
 ```
 
