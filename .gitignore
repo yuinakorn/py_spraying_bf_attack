@@ -49,6 +49,7 @@ debug_*.json
 fname.txt
 lname.txt
 password.txt
+result.txt
 
 # All test file
 *test*

