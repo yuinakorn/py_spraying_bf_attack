@@ -102,11 +102,14 @@ successful_logins = []  # เก็บข้อมูลที่ login สำ�
 start_time = datetime.now()  # บันทึกเวลาเริ่มต้น
 
 # ตั้งค่าการหน่วงเวลา
-MIN_DELAY = 1.0  # หน่วงขั้นต่ำ 1 วินาที
-MAX_DELAY = 5.0  # หน่วงสูงสุด 5 วินาที
-BATCH_SIZE = 10   # ทดสอบ 10 ครั้งแล้วหยุดพักนาน
-BATCH_DELAY = 20.0  # หยุดพัก 20 วินาทีหลังทดสอบ 10 ครั้ง
-CSRF_REFRESH_INTERVAL = 1  # ดึง CSRF token ใหม่ทุกครั้ง
+MIN_DELAY = os.getenv("MIN_DELAY", 1.0)  # หน่วงขั้นต่ำ 1 วินาที
+MAX_DELAY = os.getenv("MAX_DELAY", 5.0)  # หน่วงสูงสุด 5 วินาที
+BATCH_SIZE = os.getenv("BATCH_SIZE", 10)   # ทดสอบ 10 ครั้งแล้วหยุดพักนาน
+BATCH_DELAY = os.getenv("BATCH_DELAY", 20.0)  # หยุดพัก 20 วินาทีหลังทดสอบ 10 ครั้ง
+CSRF_REFRESH_INTERVAL = os.getenv("CSRF_REFRESH_INTERVAL", 1)  # ดึง CSRF token ใหม่ทุกครั้ง
+
+RESPONSE_SUCCESS = os.getenv("RESPONSE_SUCCESS", "true")
+
 
 # เริ่มที่ password ก่อน (outer loop)
 for password in passwords:
@@ -182,7 +185,7 @@ for password in passwords:
                 response_text = post_response.text.strip()
                 print(f"📄 Response Text: {response_text[:200]}...")
 
-                if response_text.lower() == "true":
+                if response_text.lower() == RESPONSE_SUCCESS:
                     print("✅ Login สำเร็จ (ระบบตอบ true)")
                     success_count += 1
                     successful_logins.append({
